@@ -5,7 +5,7 @@ function Set-DataverseSalesOrder {
         [string]
         $SalesOrderId,
 
-        [ValidateSet("CancelOrder", "FulfillOrder")]
+        [ValidateSet("ActiveNew", "CancelOrderRejected", "FulfillOrderComplete", "FulfillOrderPartial")]
         [string]
         $State, 
         
@@ -29,11 +29,57 @@ function Set-DataverseSalesOrder {
     
     process {
         switch ($State) {
-            "CancelOrder" {
+            "ActiveNew" {
+                $Body = @{
+                    statecode = 0
+                    statuscode = 1
+                }
+                  
+                Update-DataverseTableRow -Table "salesorders" -RowId $SalesOrderId -Body $Body
+                break
+            }
+            "CancelOrderRejected" {
+                $Action = "CancelSalesOrder"
+                $Body = @{
+                    "Status"     = 100000000
+                    "OrderClose" = @{
+                        "@odata.type" = "#Microsoft.Dynamics.CRM.orderclose"
+                        actualend            = $ActualEndDate
+                        description          = $Description
+                        "salesorderid@odata.bind" = "/salesorders($SalesOrderId)"
+                    }
+                }
+                Invoke-DataverseAction -Action $Action -Body $Body
                 break
             }
 
-            "FulfillOrder" {
+            "FulfillOrderComplete" {
+                $Action = "salesorders/Microsoft.Dynamics.CRM.FulfillSalesOrder"
+                $Body = @{
+                    "Status"     = 100001
+                    "OrderClose" = @{
+                        "@odata.type" = "#Microsoft.Dynamics.CRM.orderclose"
+                        actualend            = $ActualEndDate
+                        description          = $Description
+                        "salesorderid@odata.bind" = "/salesorders($SalesOrderId)"
+                    }
+                }
+                Invoke-DataverseAction -Action $Action -Body $Body
+                break
+            }
+
+            "FulfillOrderPartial" {
+                $Action = "salesorders/Microsoft.Dynamics.CRM.FulfillSalesOrder"
+                $Body = @{
+                    "Status"     = 100002
+                    "OrderClose" = @{
+                        "@odata.type" = "#Microsoft.Dynamics.CRM.orderclose"
+                        actualend            = $ActualEndDate
+                        description          = $Description
+                        "salesorderid@odata.bind" = "/salesorders($SalesOrderId)"
+                    }
+                }
+                Invoke-DataverseAction -Action $Action -Body $Body
                 break
             }
         }
